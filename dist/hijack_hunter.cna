@@ -1,0 +1,25 @@
+beacon_command_register(
+"hijack_hunter",
+"Get possible DLL hijack directories, provided a filepath.",
+"Synopsis: hijack_hunter help");
+
+alias hijack_hunter {
+    local('$handle $args $data');
+    local('$verboseHelperString');
+
+    $handle = openf(script_resource("dll_hijack_hunter.x64.o"));
+    $data = readb($handle, -1);
+    closef($handle);
+
+    $verboseHelperString  = "";
+    $verboseHelperString .= "Options:\n";
+    $verboseHelperString .= "========\n";
+    $verboseHelperString .= "Use DLL search resolution to attempt to find a DLL/path to hijack:\n\thijack_hunter FOLDER_CONTAINING_PE_FILE DLL_NAME_TO_HUNT.dll\n\n";
+
+    if ( size(@_) == 3 ) {
+        $args = bof_pack($1, "zz", $2, $3);
+        beacon_inline_execute($1, $data, "go", $args);
+    } else {
+        berror($1, $verboseHelperString);
+    }
+}
