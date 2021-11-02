@@ -169,6 +169,8 @@ void go(char* args, int arglength)
     if ( resultData == NULL )
     {
         BeaconPrintf(CALLBACK_OUTPUT, "Failure in malloc, exiting before any further logic commences.\n");
+        BeaconFormatFree (&formatObject);
+        BeaconFormatFree (&environmentObject);
         return;
     }
 
