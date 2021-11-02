@@ -1,0 +1,96 @@
+#############################################################################
+#   Author: Justin Lucas (@the_bit_diddler)                                 #
+#   Date:   November 2, 2021                                                #
+#                                                                           #
+#   Usage:                                                                  #
+#       - Load in "Script Manager"                                          #
+#       - Get a list of imported DLL                                        #
+#         functions from https://github.com/EspressoCake/DLL_Imports_BOF    #
+#           e.g. process_imports_api C:\Windows\System32\cmd.exe ntdll.dll  #
+#       - generate_def_file name_of_dll.dll                                 #
+#           e.g. generate_def_file ntdll.dll                                #
+#############################################################################
+
+global('%dSourceMap');
+%dSourceMap = %();
+
+
+beacon_command_register(
+"generate_def_file",
+"Generate a .DEF file for use with Cobalt Strike's Artifact Kit.",
+"generate_def_file DLL_NAME.dll");
+
+alias generate_def_file {
+    local('$key')
+    
+    if ( size(@_) == 2 ) {
+        local('$handle');
+
+        if ( (binfo($1, 'internal') . '-' . binfo($1, 'computer') . '-' . $2) in (keys(%dSourceMap)) ) {
+            blog($1, "Found existing data model for this host's DLL: " . $2);
+            blog($1, "Generating appropriate .DEF file using extracted imports from prior execution of DLL_Imports_BOF.");
+
+            local('$currentPath');
+            $currentPath  = script_resource("/");
+            $currentPath .= (binfo($1, 'internal') . '-' . binfo($1, 'computer') . '-' . (split('\.', $2)[0])) . '.def';
+        
+            $handle = openf('>' . $currentPath);
+            writeb($handle, %dSourceMap[binfo($1, 'internal') . '-' . binfo($1, 'computer') . '-' . $2]);
+            closef($handle);
+
+            blog($1, "Finished writing proxy-style .DEF file: " . $currentPath);
+        }
+    } else {
+        berror($1, "Usage: generate_def_file NAME_OF_DLL.dll");
+    }
+}
+
+
+on beacon_output {
+    local('@generalString');
+    local('$dllNameToMimic');
+    local('$exportDefTemplate');
+    
+    $dllNameToMimic = "";
+    @generalString = @();
+    $exportDefTemplate = "";
+    $generalString = split('\n', $2);
+
+    if ($generalString[size($generalString) - 1] hasmatch 'Closing handle to file.*Done!')
+    {
+        if ($generalString[2] hasmatch 'DLL inquired')
+        {   
+            $exportDefTemplate = "EXPORTS\n";
+            $dllNameToMimic = split('  ', $generalString[2])[size(split('  ', $generalString[2])) - 1];
+            
+            local('$index');
+            for ($index = 4; $index < size($generalString) - 4; $index += 1)
+            {
+                local('$fName');
+
+                $fName = split('  ', replace($generalString[$index], "\t", ""))[0];
+                if ($fName)
+                {
+                    $exportDefTemplate .= "    ";
+                    $exportDefTemplate .= $fName; 
+                    $exportDefTemplate .= "=";
+                    $exportDefTemplate .= split('\.', $dllNameToMimic)[0];
+                    $exportDefTemplate .= "." . $fName . "\n";
+                }
+            }
+            %dSourceMap[binfo($1, 'internal') . '-' . binfo($1, 'computer') . '-' . $dllNameToMimic] = $exportDefTemplate;
+        }
+    }
+}
+
+
+command showTemplates {
+    local('$key');
+    
+    foreach $key (keys(%dSourceMap)) {
+        println("");
+        println($key);
+        println(%dSourceMap[$key]);
+        println("");
+    }
+}
