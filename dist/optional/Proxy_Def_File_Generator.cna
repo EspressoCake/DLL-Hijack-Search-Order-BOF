@@ -39,6 +39,9 @@ alias generate_def_file {
             closef($handle);
 
             blog($1, "Finished writing proxy-style .DEF file: " . $currentPath);
+        } else {
+            berror($1, "Desired file not found.");
+            berror($1, "Did you run process_imports_api PATH_TO_EXECUTABLE " . $2 . " first?");
         }
     } else {
         berror($1, "Usage: generate_def_file NAME_OF_DLL.dll");
